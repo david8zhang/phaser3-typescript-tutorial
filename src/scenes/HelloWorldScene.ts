@@ -6,11 +6,17 @@ export default class HelloWorldScene extends Phaser.Scene {
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys
   private stars?: Phaser.Physics.Arcade.Group
 
+  private score = 0
+  private scoreText: Phaser.GameObjects.Text
+
+  private bombs: Phaser.Physics.Arcade.Group
+  private gameOver = false
+
   constructor() {
     super('hello-world')
   }
 
-  preload() {
+  preload(): void {
     this.load.image('sky', 'assets/sky.png')
     this.load.image('ground', 'assets/platform.png')
     this.load.image('star', 'assets/star.png')
@@ -21,7 +27,7 @@ export default class HelloWorldScene extends Phaser.Scene {
     })
   }
 
-  create() {
+  create(): void {
     this.add.image(400, 300, 'sky')
 
     this.platforms = this.physics.add.staticGroup()
@@ -87,13 +93,62 @@ export default class HelloWorldScene extends Phaser.Scene {
       null,
       this
     )
+
+    this.scoreText = this.add.text(16, 16, 'score: 0', {
+      fontSize: '32px',
+      color: '#000',
+    })
+
+    this.bombs = this.physics.add.group()
+    this.physics.add.collider(this.bombs, this.platforms)
+    this.physics.add.overlap(
+      this.player,
+      this.bombs,
+      this.handleHitBomb,
+      undefined,
+      this
+    )
   }
 
-  collectStar(player, star) {
-    star.disableBody(true, true)
+  private handleHitBomb(
+    player: Phaser.GameObjects.GameObject,
+    b: Phaser.GameObjects.GameObject
+  ): void {
+    this.physics.pause()
+    this.player.setTint(0xff00000)
+    this.player.anims.play('turn')
+    this.gameOver = true
   }
 
-  update() {
+  collectStar(
+    player: Phaser.GameObjects.GameObject,
+    star: Phaser.GameObjects.GameObject
+  ): void {
+    const s = star as Phaser.Physics.Arcade.Image
+    s.disableBody(true, true)
+    this.score += 10
+    this.scoreText.setText(`score: ${this.score}`)
+
+    if (this.stars.countActive(true) === 0) {
+      this.stars.children.iterate((c) => {
+        const child = c as Phaser.Physics.Arcade.Image
+        child.enableBody(true, child.x, 0, true, true)
+      })
+
+      if (this.player) {
+        const x =
+          this.player.x < 400
+            ? Phaser.Math.Between(400, 800)
+            : Phaser.Math.Between(0, 400)
+        const bomb = this.bombs?.create(x, 16, 'bomb')
+        bomb.setBounce(1)
+        bomb.setCollideWorldBounds(true)
+        bomb.setVelocity(Phaser.Math.Between(-200, 200), 20)
+      }
+    }
+  }
+
+  update(): void {
     if (!this.cursors) {
       return
     }
